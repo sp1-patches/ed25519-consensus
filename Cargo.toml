@@ -15,7 +15,7 @@ resolver = "2"
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 sha2 = { version = "0.9", default-features = false }
 rand_core = { version = "0.6", default-features = false }
-curve25519-dalek = { package = "curve25519-dalek-ng", path = "../dalek-ng-private/", default-features = false, features = [
+curve25519-dalek = { package = "curve25519-dalek-ng", git = "https://github.com/succinctlabs/dalek-ng-private.git", branch = "tamir/ecall", default-features = false, features = [
     "zkvm_backend",
     "alloc",
 ] }
