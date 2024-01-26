@@ -1,7 +1,7 @@
 #![doc(html_root_url = "https://docs.rs/ed25519-consensus/2.1.0")]
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
-#![cfg_attr(not(feature = "std"), no_std)]
+// #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]
 pub mod batch;
