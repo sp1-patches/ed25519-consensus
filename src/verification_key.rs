@@ -239,6 +239,7 @@ impl VerificationKey {
         // `s_bytes` MUST represent an integer less than the prime `l`.
         let s = Scalar::from_canonical_bytes(signature.s_bytes).ok_or(Error::InvalidSignature)?;
         // `R_bytes` MUST be an encoding of a point on the twisted Edwards form of Curve25519.
+
         let R = CompressedEdwardsY(signature.R_bytes)
             .decompress()
             .ok_or(Error::InvalidSignature)?;
@@ -250,7 +251,8 @@ impl VerificationKey {
         // <=>   0 = [8](R - R')  where R' = [s]B - [k]A
         let R_prime = EdwardsPoint::vartime_double_scalar_mul_basepoint(&k, &self.minus_A, &s);
 
-        if (R - R_prime).mul_by_cofactor().is_identity() {
+        let expected_ident = (R - R_prime).mul_by_cofactor();
+        if expected_ident.is_identity() {
             Ok(())
         } else {
             Err(Error::InvalidSignature)
