@@ -223,14 +223,12 @@ impl VerificationKey {
     /// [ps]: https://zips.z.cash/protocol/protocol.pdf#concreteed25519
     /// [ZIP215]: https://github.com/zcash/zips/blob/master/zip-0215.rst
     pub fn verify(&self, signature: &Signature, msg: &[u8]) -> Result<(), Error> {
-        // println!("cycle-tracker-start: scalar from hash");
         let k = Scalar::from_hash(
             Sha512::default()
                 .chain(&signature.R_bytes[..])
                 .chain(&self.A_bytes.0[..])
                 .chain(msg),
         );
-        // println!("cycle-tracker-end: scalar from hash");
         self.verify_prehashed(signature, k)
     }
 
@@ -242,24 +240,18 @@ impl VerificationKey {
         let s = Scalar::from_canonical_bytes(signature.s_bytes).ok_or(Error::InvalidSignature)?;
         // `R_bytes` MUST be an encoding of a point on the twisted Edwards form of Curve25519.
 
-        // println!("cycle-tracker-start: decompress");
         let R = CompressedEdwardsY(signature.R_bytes)
             .decompress()
             .ok_or(Error::InvalidSignature)?;
-        // println!("cycle-tracker-end: decompress");
         // We checked the encoding of A_bytes when constructing `self`.
 
         //       [8][s]B = [8]R + [8][k]A
         // <=>   [8]R = [8][s]B - [8][k]A
         // <=>   0 = [8](R - ([s]B - [k]A))
         // <=>   0 = [8](R - R')  where R' = [s]B - [k]A
-        // println!("cycle-tracker-start: scalar mul");
         let R_prime = EdwardsPoint::vartime_double_scalar_mul_basepoint(&k, &self.minus_A, &s);
-        // println!("cycle-tracker-end: scalar mul");
 
-        // println!("cycle-tracker-start: cofactor mul");
         let expected_ident = (R - R_prime).mul_by_cofactor();
-        // println!("cycle-tracker-end: cofactor mul");
         if expected_ident.is_identity() {
             Ok(())
         } else {
