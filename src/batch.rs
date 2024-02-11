@@ -48,8 +48,7 @@
 //!
 //! [ZIP215]: https://github.com/zcash/zips/blob/master/zip-0215.rst
 
-use std::{collections::HashMap, convert::TryFrom};
-
+use curve25519_dalek::digest::Update;
 use curve25519_dalek::{
     edwards::{CompressedEdwardsY, EdwardsPoint},
     scalar::Scalar,
@@ -57,6 +56,7 @@ use curve25519_dalek::{
 };
 use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest, Sha512};
+use std::{collections::HashMap, convert::TryFrom};
 
 use crate::{Error, Signature, VerificationKey, VerificationKeyBytes};
 
@@ -83,12 +83,13 @@ impl<'msg, M: AsRef<[u8]> + ?Sized> From<(VerificationKeyBytes, Signature, &'msg
     fn from(tup: (VerificationKeyBytes, Signature, &'msg M)) -> Self {
         let (vk_bytes, sig, msg) = tup;
         // Compute k now to avoid dependency on the msg lifetime.
-        let k = Scalar::from_hash(
-            Sha512::default()
-                .chain(&sig.R_bytes[..])
-                .chain(&vk_bytes.0[..])
-                .chain(msg),
-        );
+        let mut h = Sha512::default()
+            .chain(&sig.R_bytes[..])
+            .chain(&vk_bytes.0[..])
+            .chain(msg);
+        let mut output = [0u8; 64];
+        output.copy_from_slice(h.finalize().as_slice());
+        let k = Scalar::from_bytes_mod_order_wide(&output);
         Self { vk_bytes, sig, k }
     }
 }
@@ -177,20 +178,20 @@ impl Verifier {
         let mut As = Vec::with_capacity(m);
         let mut R_coeffs = Vec::with_capacity(self.batch_size);
         let mut Rs = Vec::with_capacity(self.batch_size);
-        let mut B_coeff = Scalar::zero();
+        let mut B_coeff = Scalar::ZERO;
 
         for (vk_bytes, sigs) in self.signatures.iter() {
             let A = CompressedEdwardsY(vk_bytes.0)
                 .decompress()
                 .ok_or(Error::InvalidSignature)?;
 
-            let mut A_coeff = Scalar::zero();
+            let mut A_coeff = Scalar::ZERO;
 
             for (k, sig) in sigs.iter() {
                 let R = CompressedEdwardsY(sig.R_bytes)
                     .decompress()
                     .ok_or(Error::InvalidSignature)?;
-                let s = Scalar::from_canonical_bytes(sig.s_bytes).ok_or(Error::InvalidSignature)?;
+                let s = Scalar::from_canonical_bytes(sig.s_bytes).unwrap();
                 let z = Scalar::from(gen_u128(&mut rng));
                 B_coeff -= z * s;
                 Rs.push(R);

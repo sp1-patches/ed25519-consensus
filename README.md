@@ -1,5 +1,9 @@
 # Ed25519 for consensus-critical contexts
 
+curve25519-dalek = { version = "4", default-features = false, features = ["alloc", "zeroize", "digest", "precomputed-tables", "legacy_compatibility"] }
+sha2 = { version = "0.9", default-features = false }
+
+
 This library provides an Ed25519 implementation with validation rules intended
 for consensus-critical contexts.
 

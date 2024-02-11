@@ -1,5 +1,6 @@
 use core::convert::{TryFrom, TryInto};
 
+use curve25519_dalek::digest::Update;
 use curve25519_dalek::{
     edwards::{CompressedEdwardsY, EdwardsPoint},
     scalar::Scalar,
@@ -223,12 +224,13 @@ impl VerificationKey {
     /// [ps]: https://zips.z.cash/protocol/protocol.pdf#concreteed25519
     /// [ZIP215]: https://github.com/zcash/zips/blob/master/zip-0215.rst
     pub fn verify(&self, signature: &Signature, msg: &[u8]) -> Result<(), Error> {
-        let k = Scalar::from_hash(
-            Sha512::default()
-                .chain(&signature.R_bytes[..])
-                .chain(&self.A_bytes.0[..])
-                .chain(msg),
-        );
+        let mut h = Sha512::new()
+            .chain(&signature.R_bytes[..])
+            .chain(&self.A_bytes.0[..])
+            .chain(msg);
+        let mut output = [0u8; 64];
+        output.copy_from_slice(h.finalize().as_slice());
+        let k = Scalar::from_bytes_mod_order_wide(&output);
         self.verify_prehashed(signature, k)
     }
 
@@ -237,7 +239,7 @@ impl VerificationKey {
     #[allow(non_snake_case)]
     pub(crate) fn verify_prehashed(&self, signature: &Signature, k: Scalar) -> Result<(), Error> {
         // `s_bytes` MUST represent an integer less than the prime `l`.
-        let s = Scalar::from_canonical_bytes(signature.s_bytes).ok_or(Error::InvalidSignature)?;
+        let s = Scalar::from_canonical_bytes(signature.s_bytes).unwrap();
         // `R_bytes` MUST be an encoding of a point on the twisted Edwards form of Curve25519.
         let R = CompressedEdwardsY(signature.R_bytes)
             .decompress()
